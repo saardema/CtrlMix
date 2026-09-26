@@ -1,6 +1,4 @@
-from abc import ABC, abstractmethod
 from enum import Enum, IntEnum, auto
-import time
 
 from ctrl_mix.core.controller import Control
 
@@ -22,7 +20,6 @@ class XTouchControl(Control):
     def __init__(self, layer: int, index: int, controller):
         self.layer = layer
         self.index = index
-        self.controller = controller
         self.adapter = controller.adapter
 
         ctrl_type = ControlType[self.__class__.__name__]
@@ -109,15 +106,15 @@ class Encoder(XTouchControl):
     def on_press(self):
         super().on_press()
 
-            epsilon = 0.1
+        epsilon = 0.1
         unity_gain = 0.771
 
         if self.tristate_toggle and self.value < unity_gain / 2 - epsilon:
             self.set_value(unity_gain / 2)
         elif self.value < unity_gain - epsilon:
             self.set_value(unity_gain)
-            else:
-                self.set_value(0.0)
+        else:
+            self.set_value(0.0)
 
 
 class Fader(XTouchControl):

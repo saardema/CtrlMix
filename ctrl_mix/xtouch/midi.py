@@ -17,7 +17,8 @@ class XTouchMIDIClient:
 
     def connect(self):
         try:
-            self._inport = mido.open_input(DEVICE_NAME, callback=self._on_midi_received)
+            self._inport = mido.open_input(
+                DEVICE_NAME, callback=self._on_midi_received)
             self._outport = mido.open_output(DEVICE_NAME)
             print('Connected to ' + DEVICE_NAME)
             self.ready = True
@@ -26,11 +27,13 @@ class XTouchMIDIClient:
             print(e)
 
     def send_note_on(self, note: int, velocity: int, channel: int):
-        msg = mido.Message('note_on', note=note, velocity=velocity, channel=channel)
+        msg = mido.Message('note_on', note=note,
+                           velocity=velocity, channel=channel)
         self._outport.send(msg)
 
     def send_cc(self, cc: int, value: int, channel: int):
-        msg = mido.Message('control_change', control=cc, value=value, channel=channel)
+        msg = mido.Message('control_change', control=cc,
+                           value=value, channel=channel)
         self._outport.send(msg)
 
     def _on_midi_received(self, msg: mido.Message):
@@ -74,21 +77,27 @@ class MidiCtrlEvent(Flag):
 class XTouchMidiAdapter(EventEmitter):
 
     cc_map = [
-        (ControlType.Fader, MidiCtrlEvent.Moved, range(9), ControlSubType.Main, {ControlSubType.Channel: 7}),
-        (ControlType.Encoder, MidiCtrlEvent.Moved, range(10, 26), ControlSubType.Side, {ControlSubType.Channel: 17}),
-        (ControlType.Fader, MidiCtrlEvent.PressEvent, range(100, 110), ControlSubType.Main, {ControlSubType.Channel: 107}),
+        (ControlType.Fader, MidiCtrlEvent.Moved, range(9),
+         ControlSubType.Main, {ControlSubType.Channel: 7}),
+        (ControlType.Encoder, MidiCtrlEvent.Moved, range(10, 26),
+         ControlSubType.Side, {ControlSubType.Channel: 17}),
+        (ControlType.Fader, MidiCtrlEvent.PressEvent, range(100, 110),
+         ControlSubType.Main, {ControlSubType.Channel: 107}),
     ]
 
     note_map = [
-        (ControlType.Button, MidiCtrlEvent.PressEvent, range(55), ControlSubType.Transport, {ControlSubType.Channel: 31, ControlSubType.Main: 32}),
-        (ControlType.Encoder, MidiCtrlEvent.PressEvent, range(55, 71), ControlSubType.Side, {ControlSubType.Channel: 62}),
+        (ControlType.Button, MidiCtrlEvent.PressEvent, range(55), ControlSubType.Transport, {
+         ControlSubType.Channel: 31, ControlSubType.Main: 32}),
+        (ControlType.Encoder, MidiCtrlEvent.PressEvent, range(
+            55, 71), ControlSubType.Side, {ControlSubType.Channel: 62}),
     ]
 
     global_channel: int = 2
     encoder_cc_start: int = cc_map[1][2].start
     expression_cc: int = 63
 
-    MidiControlChanged = Event[Callable[[ControlType, ControlSubType, MidiCtrlEvent, int, int, float], None]]("MidiControlChanged")
+    MidiControlChanged = Event[Callable[[ControlType, ControlSubType,
+                                         MidiCtrlEvent, int, int, float], None]]("MidiControlChanged")
     ExpressionChanged = Event[Callable[[int], None]]("ExpressionChanged")
 
     def __init__(self) -> None:
@@ -126,7 +135,8 @@ class XTouchMidiAdapter(EventEmitter):
             else:
                 event |= MidiCtrlEvent.EventEnd
 
-        self.emit(XTouchMidiAdapter.MidiControlChanged, ctrl_type, sub_type, event, layer, idx, normalized)
+        self.emit(XTouchMidiAdapter.MidiControlChanged, ctrl_type,
+                  sub_type, event, layer, idx, normalized)
 
     def set_fader_value(self, layer: int, index: int, value: float):
         cc_number = index

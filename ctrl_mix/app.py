@@ -1,6 +1,12 @@
 from ctrl_mix.engine import ChannelConfigMode, Engine
-from ctrl_mix.motu.channel import Equalizer, MotuAuxSendCapable, MotuGroupSendCapable, MotuMainSendCapable, MotuMixerChannel
-from ctrl_mix.xtouch.control import Encoder
+from ctrl_mix.motu.channel import (
+    Equalizer,
+    MotuAuxSendCapable,
+    MotuGroupSendCapable,
+    MotuMainSendCapable,
+    MotuMixerChannel,
+)
+from ctrl_mix.xtouch.control import Button, Encoder
 
 
 class ConfigModeHandler:
@@ -85,14 +91,12 @@ class EqModeHandler(ConfigModeHandler):
         band = chan.eq.get_bands()[encoder.index % 8 // 2]
 
         if encoder.index % 2 == 1:
-
             # Toggle freq / bandwidth encoder
             param = asm.control_to_parameter.get(encoder)
             next_param = band.freq if param == band.bw else band.bw
             engine.assign(encoder, next_param)
 
         elif band in [chan.eq.lowshelf, chan.eq.highshelf]:
-
             # Toggle shelf/parametric mode for low and highshelf
             mix.set_parameter(band.mode, 1 - band.mode.value)
 
@@ -121,6 +125,8 @@ mode_map: dict[ChannelConfigMode, type[ConfigModeHandler]] = {
     ChannelConfigMode.Compressor: DefaultModeHandler,
     ChannelConfigMode.Gate: DefaultModeHandler,
 }
+
+# endregion
 
 
 def setup_main_mix():
@@ -160,6 +166,10 @@ def on_encoder_long_pressed(encoder: Encoder, sub_type):
     mode_map[engine.state.chan_cfg_mode].on_long_press(encoder)
 
 
+def on_button_pressed(button: Button, sub_type):
+    print(button, sub_type.name)
+
+
 def on_channel_selected(layer: int, ch: int):
     mode_map[engine.state.chan_cfg_mode].enter()
     chan = asm.main_mix[ch]
@@ -180,8 +190,7 @@ def on_channel_unselected(layer: int, prev_ch: int):
     setup_main_mix()
 
 
-def on_channel_reselected(layer: int, prev_ch: int):
-    ...
+def on_channel_reselected(layer: int, prev_ch: int): ...
 
 
 def on_layer_change(layer: int):
@@ -210,5 +219,6 @@ if __name__ == "__main__":
 
     ctr.on(ctr.EncoderPressed, on_encoder_short_pressed)
     ctr.on(ctr.EncoderLongPressed, on_encoder_long_pressed)
+    ctr.on(ctr.ButtonPressed, on_button_pressed)
 
     engine.set_chan_cfg_mode(ChannelConfigMode.AuxSends)

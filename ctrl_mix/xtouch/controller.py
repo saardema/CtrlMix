@@ -1,10 +1,17 @@
 import asyncio
 from collections.abc import Callable
 
-from ctrl_mix.core.controller import Control
-from ctrl_mix.core.events import Event, EventEmitter
-from ctrl_mix.xtouch.control import Button, ControlSubType, ControlType, Encoder, Fader, XTouchControl
-from ctrl_mix.xtouch.midi import MidiCtrlEvent, XTouchMidiAdapter
+from core.controller import Control
+from core.events import Event, EventEmitter
+from xtouch.control import (
+    Button,
+    ControlSubType,
+    ControlType,
+    Encoder,
+    Fader,
+    XTouchControl,
+)
+from xtouch.midi import MidiCtrlEvent, XTouchMidiAdapter
 
 
 class XTouchController(EventEmitter):
@@ -14,7 +21,6 @@ class XTouchController(EventEmitter):
 
     ControlChanged = Event[Callable[[XTouchControl, ControlSubType], None]]("ControlChanged")
 
-    ButtonPressed = Event[Callable[[Button, ControlSubType], None]]("ButtonPressed")
     ButtonPressed = Event[Callable[[Button, ControlSubType], None]]("ButtonPressed")
     ButtonReleased = Event[Callable[[Button, ControlSubType], None]]("ButtonReleased")
 
@@ -44,27 +50,23 @@ class XTouchController(EventEmitter):
 
     def build_controls(self):
         self.faders: list[list[Fader]] = [
-            [Fader(l, i, self) for i in range(8 + 1)]
-            for l in range(2)]
+            [Fader(l, i, self) for i in range(8 + 1)] for l in range(2)
+        ]
         self.channel_faders: list[Fader] = self.faders[0][:8] + self.faders[1][:8]
         self.main_faders: list[Fader] = [self.faders[0][8], self.faders[1][8]]
 
-        self.encoders = [
-            [Encoder(l, i, self) for i in range(16)]
-            for l in range(2)]
+        self.encoders = [[Encoder(l, i, self) for i in range(16)] for l in range(2)]
         self.channel_encoders = self.encoders[0][:8] + self.encoders[1][:8]
         self.side_encoders = [self.encoders[0][8:16], self.encoders[1][8:16]]
 
-        self.buttons = [
-            [Button(l, i, self) for i in range(32 + 6 + 1)]
-            for l in range(2)]
+        self.buttons = [[Button(l, i, self) for i in range(32 + 6 + 1)] for l in range(2)]
         self.channel_buttons = self.buttons[0][:32] + self.buttons[1][:32]
         self.main_buttons = [self.buttons[0][32], self.buttons[1][32]]
         self.mute_buttons = self.buttons[0][0:8] + self.buttons[1][0:8]
         self.select_buttons = self.buttons[0][24:32] + self.buttons[1][24:32] + self.main_buttons
         self.transport_buttons = self.buttons[0][33:] + self.buttons[1][33:]
         self.button_columns = [
-            self.channel_buttons[l * 32 + ch:l * 32 + ch + 32:8]
+            self.channel_buttons[l * 32 + ch : l * 32 + ch + 32 : 8]
             for l in range(2)
             for ch in range(8)
         ]
@@ -106,7 +108,7 @@ class XTouchController(EventEmitter):
         midi_event: MidiCtrlEvent,
         layer: int,
         number: int,
-        value: float
+        value: float,
     ):
         # Switch between Standard and Mackie Control mode
         # by pressing the first two buttons on the third row
