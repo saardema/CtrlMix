@@ -72,7 +72,7 @@ class Encoder(XTouchControl):
         super().__init__(layer, index, controller)
 
         self._mode: Encoder.Mode = Encoder.Mode.Fan
-        self.tristate_toggle = True
+        self.tristate_toggle = False
 
     def set_mode(self, mode: Mode, sync=True):
         """
@@ -109,14 +109,13 @@ class Encoder(XTouchControl):
     def on_press(self):
         super().on_press()
 
-        if self.tristate_toggle:
             epsilon = 0.1
-            unity = 0.78
+        unity_gain = 0.771
 
-            if self.value < unity / 2 - epsilon:
-                self.set_value(unity / 2)
-            elif self.value < unity - epsilon:
-                self.set_value(unity)
+        if self.tristate_toggle and self.value < unity_gain / 2 - epsilon:
+            self.set_value(unity_gain / 2)
+        elif self.value < unity_gain - epsilon:
+            self.set_value(unity_gain)
             else:
                 self.set_value(0.0)
 

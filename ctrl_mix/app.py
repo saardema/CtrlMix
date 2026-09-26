@@ -111,7 +111,7 @@ class EqModeHandler(ConfigModeHandler):
     def exit():
         _, _, encoders = EqModeHandler.prepare()
         for enc in encoders:
-            enc.tristate_toggle = True
+            enc.tristate_toggle = False
 
 
 mode_map: dict[ChannelConfigMode, type[ConfigModeHandler]] = {
