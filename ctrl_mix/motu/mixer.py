@@ -1,17 +1,21 @@
 from typing import TypeVar
 
-
-from core.mixer import Mixer, Parameter, TParam
 from ctrl_mix.core.events import EventEmitter
-from motu.store import AudioChannel, MixerStore
-from ctrl_mix.motu.channel import MotuAux, MotuGroup, MotuInput, \
-    MotuMain, MotuMixerChannel, MotuMonitor
+from ctrl_mix.core.mixer import Mixer, Parameter, TParam
+from ctrl_mix.motu.channel import (
+    MotuAux,
+    MotuGroup,
+    MotuInput,
+    MotuMain,
+    MotuMixerChannel,
+    MotuMonitor,
+)
+from ctrl_mix.motu.store import AudioChannel, MixerStore
 
 T = TypeVar("T", int, str, float, bool)
 
 
 class MotuMixer(Mixer, EventEmitter):
-
     def __init__(self, event_loop) -> None:
         super().__init__()
 
@@ -23,18 +27,15 @@ class MotuMixer(Mixer, EventEmitter):
         self.monitor = MotuMonitor(self, 0, "Monitor")
 
         self.channels: dict[int, MotuInput] = {
-            i: MotuInput(self, i, chan.name)
-            for i, chan in self.store.get_bank("Mix In").items()
+            i: MotuInput(self, i, chan.name) for i, chan in self.store.get_bank("Mix In").items()
         }
 
         self.groups: dict[int, MotuGroup] = {
-            i: MotuGroup(self, i, chan.name)
-            for i, chan in self.store.get_bank("Mix Group").items()
+            i: MotuGroup(self, i, chan.name) for i, chan in self.store.get_bank("Mix Group").items()
         }
 
         self.aux: dict[int, MotuAux] = {
-            i: MotuAux(self, i, chan.name)
-            for i, chan in self.store.get_bank("Mix Aux").items()
+            i: MotuAux(self, i, chan.name) for i, chan in self.store.get_bank("Mix Aux").items()
         }
 
         self.init_params()

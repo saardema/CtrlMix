@@ -1,14 +1,16 @@
 from ctrl_mix.engine import ChannelConfigMode, Engine
 from ctrl_mix.motu.channel import (
     Equalizer,
+    MotuAux,
     MotuAuxSendCapable,
     MotuGroupSendCapable,
     MotuMainSendCapable,
     MotuMixerChannel,
 )
-from ctrl_mix.xtouch.control import Button, Encoder
+from ctrl_mix.xtouch.control import Encoder
 
 
+# region ConfigMode
 class ConfigModeHandler:
     @staticmethod
     def prepare():
@@ -60,6 +62,14 @@ class AuxModeHandler(ConfigModeHandler):
         elif chan is mix.main:
             engine.assign_encoders(False, engine.get_main_out_channels(), layer)
 
+    @staticmethod
+    def on_long_press(encoder: Encoder):
+        _layer, chan, _encs = AuxModeHandler.prepare()
+        if isinstance(chan, MotuAuxSendCapable):
+            aux = list(mix.sendable_aux.values())[encoder.index % 8]
+            if isinstance(aux, MotuAux):
+                mix.set_parameter(aux.prefader, 1 - aux.prefader.value)
+
 
 class EqModeHandler(ConfigModeHandler):
     @staticmethod
@@ -67,7 +77,7 @@ class EqModeHandler(ConfigModeHandler):
         _, chan, encoders = EqModeHandler.prepare()
 
         for enc in encoders:
-            enc.tristate_toggle = False
+            enc.state_toggle = False
 
         for i, band in enumerate(chan.eq.get_bands()):
             enc_a = encoders[i * 2]
@@ -78,23 +88,21 @@ class EqModeHandler(ConfigModeHandler):
     def update_band(enc_a: Encoder, enc_b: Encoder, band: Equalizer.Band):
         on = band.enable.normalized
 
-        engine.assign(enc_a, band.gain, on)
-        engine.assign(enc_b, band.freq, on)
+        engine.assign(enc_a, band.freq, on)
+        engine.assign(enc_b, band.gain, on)
 
         enc_a.is_enabled = on
         enc_b.is_enabled = on
 
     @staticmethod
     def on_short_press(encoder: Encoder):
-        layer, chan, encs = EqModeHandler.prepare()
-
+        _layer, chan, _encs = EqModeHandler.prepare()
         band = chan.eq.get_bands()[encoder.index % 8 // 2]
 
-        if encoder.index % 2 == 1:
+        if encoder.index % 2 == 0:
             # Toggle freq / bandwidth encoder
             param = asm.control_to_parameter.get(encoder)
-            next_param = band.freq if param == band.bw else band.bw
-            engine.assign(encoder, next_param)
+            engine.assign(encoder, band.freq if param == band.bw else band.bw)
 
         elif band in [chan.eq.lowshelf, chan.eq.highshelf]:
             # Toggle shelf/parametric mode for low and highshelf
@@ -105,7 +113,7 @@ class EqModeHandler(ConfigModeHandler):
         if encoder.index % 2 == 1:
             return
 
-        layer, chan, encs = EqModeHandler.prepare()
+        _layer, chan, encs = EqModeHandler.prepare()
         band = chan.eq.get_bands()[encoder.index % 8 // 2]
         mix.set_parameter(band.enable, 1 - band.enable.value)
         enc_b = encs[encs.index(encoder) + 1]
@@ -115,7 +123,8 @@ class EqModeHandler(ConfigModeHandler):
     def exit():
         _, _, encoders = EqModeHandler.prepare()
         for enc in encoders:
-            enc.tristate_toggle = False
+            enc.state_toggle = True
+            engine.assign(enc, None, False)
 
 
 mode_map: dict[ChannelConfigMode, type[ConfigModeHandler]] = {
@@ -127,28 +136,6 @@ mode_map: dict[ChannelConfigMode, type[ConfigModeHandler]] = {
 }
 
 # endregion
-
-
-def setup_main_mix():
-    for i, channel in asm.main_mix.items():
-        encoder, fader, button = ctr.get_channel_strip(i)
-        if i == 2:
-            pass
-
-        # Channel Main send => Top encoder
-        if isinstance(channel, MotuMainSendCapable):
-            engine.assign(encoder, channel.main_send)
-
-        # Channel fader => Fader
-        engine.assign(fader, channel.fader)
-
-        # Mute toggle => Top button
-        engine.assign(button, channel.mute)
-        button.is_toggle = True
-
-    # Main mix fader
-    engine.assign(ctr.main_faders[0], mix.main.fader)
-    mix.main.fader.cfg.max = 1.0
 
 
 def on_chan_cfg_mode_changed(prev_mode=None):
@@ -164,10 +151,6 @@ def on_encoder_short_pressed(encoder: Encoder, sub_type):
 
 def on_encoder_long_pressed(encoder: Encoder, sub_type):
     mode_map[engine.state.chan_cfg_mode].on_long_press(encoder)
-
-
-def on_button_pressed(button: Button, sub_type):
-    print(button, sub_type.name)
 
 
 def on_channel_selected(layer: int, ch: int):
@@ -202,6 +185,28 @@ def on_layer_change(layer: int):
             btn.sync()
 
 
+def setup_main_mix():
+    for i, channel in asm.main_mix.items():
+        encoder, fader, button = ctr.get_channel_strip(i)
+        if i == 2:
+            pass
+
+        # Channel Main send => Top encoder
+        if isinstance(channel, MotuMainSendCapable):
+            engine.assign(encoder, channel.main_send)
+
+        # Channel fader => Fader
+        engine.assign(fader, channel.fader)
+
+        # Mute toggle => Top button
+        engine.assign(button, channel.mute)
+        button.is_toggle = True
+
+    # Main mix fader
+    engine.assign(ctr.main_faders[0], mix.main.fader)
+    mix.main.fader.cfg.max = 1.0
+
+
 if __name__ == "__main__":
     engine = Engine()
     asm = engine.assignments
@@ -219,6 +224,5 @@ if __name__ == "__main__":
 
     ctr.on(ctr.EncoderPressed, on_encoder_short_pressed)
     ctr.on(ctr.EncoderLongPressed, on_encoder_long_pressed)
-    ctr.on(ctr.ButtonPressed, on_button_pressed)
 
     engine.set_chan_cfg_mode(ChannelConfigMode.AuxSends)

@@ -2,21 +2,15 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from enum import Enum
 
-from ctrl_mix.utils import remap
 from ctrl_mix.core.events import Event
-
+from ctrl_mix.utils import remap
 
 TParam = int | str | float | bool
 
 
 class Parameter(ABC):
     def __init__(
-        self,
-        key: str,
-        param_type: type[TParam],
-        cfg: ParamConfig,
-        channel: MixerChannel,
-        name: str
+        self, key: str, param_type: type[TParam], cfg: ParamConfig, channel: MixerChannel, name: str
     ) -> None:
 
         self.name = name
@@ -56,7 +50,7 @@ class ParamConfig:
         enums: list[str],
         unit: str | None,
         min: float | None,
-        max: float | None
+        max: float | None,
     ):
 
         self.type = type
@@ -65,8 +59,8 @@ class ParamConfig:
         self.unit = unit
 
         self.has_limit = min is not None or max is not None
-        self.min = float('-inf') if min is None else min
-        self.max = float('inf') if max is None else max
+        self.min = float("-inf") if min is None else min
+        self.max = float("inf") if max is None else max
 
     def normalize(self, value):
         if not self.has_limit:
@@ -85,16 +79,15 @@ class ParamConfig:
 
 
 class ChannelType(Enum):
-    Input = 'chan'
-    Group = 'group'
-    Aux = 'aux'
-    Main = 'main'
-    Monitor = 'monitor'
+    Input = "chan"
+    Group = "group"
+    Aux = "aux"
+    Main = "main"
+    Monitor = "monitor"
 
 
 class Mixer(ABC):
-    ParameterSetFromMixer = Event[Callable[[Parameter], None]](
-        "ParameterSetFromMixer")
+    ParameterSetFromMixer = Event[Callable[[Parameter], None]]("ParameterSetFromMixer")
 
     def __init__(self):
         self.channels: dict[int, InputChannel] = {}
@@ -125,17 +118,11 @@ class Mixer(ABC):
 
     @property
     def sendable_groups(self):
-        return {
-            nr: group for nr, group in self.groups.items()
-            if group.config.send_enabled
-        }
+        return {nr: group for nr, group in self.groups.items() if group.config.send_enabled}
 
     @property
     def sendable_aux(self):
-        return {
-            nr: aux for nr, aux in self.aux.items()
-            if aux.config.send_enabled
-        }
+        return {nr: aux for nr, aux in self.aux.items() if aux.config.send_enabled}
 
 
 class MixerChannel(ABC):

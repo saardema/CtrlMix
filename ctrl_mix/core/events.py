@@ -3,12 +3,13 @@ from dataclasses import dataclass
 from typing import Generic, TypeVar, Any
 from collections import defaultdict
 
-T = TypeVar('T', bound=Callable[..., Any])
+T = TypeVar("T", bound=Callable[..., Any])
 
 
 @dataclass(frozen=True)
-class Event(Generic[T]):
+class Event[T: Callable[..., Any]]:
     """Type-safe event symbol."""
+
     name: str
 
     def __hash__(self):
@@ -16,7 +17,6 @@ class Event(Generic[T]):
 
 
 class EventEmitter:
-
     def __init__(self):
         self._listeners: dict[Event, set[Callable]] = defaultdict(set)
         self._events: dict[str, Event] = {}

@@ -1,11 +1,11 @@
 import asyncio
+import re
 from collections.abc import Callable, Sequence
 from enum import Enum
-import re
 
-from core.config import init_config
-from core.events import Event, EventEmitter
 from ctrl_mix.core.assignments import AssignmentManager
+from ctrl_mix.core.config import init_config
+from ctrl_mix.core.events import Event, EventEmitter
 from ctrl_mix.core.mixer import Parameter
 from ctrl_mix.motu.channel import MotuAuxSendCapable, MotuGroupSendCapable
 from ctrl_mix.motu.mixer import MotuMixer
@@ -35,7 +35,7 @@ def log_change(ctrl, param, mixer):
 
     if param.name in ("send", "fader") and False:
         lpad = int(ctrl.value * 32)
-        val = f"|{" " * lpad}[  |  ]{" " * (32 - lpad)}|"
+        val = f"|{' ' * lpad}[  |  ]{' ' * (32 - lpad)}|"
     else:
         val = f"{param.value:.2f} {param.cfg.unit} [{ctrl.value:.3f}]"
 
@@ -59,13 +59,13 @@ class ControllerState:
 
 
 class Engine(EventEmitter):
-
+    LayerChanged = Event[Callable[[int], None]]("LayerChanged")
     ChannelUnselected = Event[Callable[[int, int], None]]("ChannelUnslected")
     ChannelSelected = Event[Callable[[int, int], None]]("ChannelSelected")
     ChannelReselected = Event[Callable[[int, int], None]]("ChannelReselected")
     ChannelConfigModeChanged = Event[Callable[[ChannelConfigMode], None]](
-        "ChannelConfigModeChanged")
-    LayerChanged = Event[Callable[[int], None]]("LayerChanged")
+        "ChannelConfigModeChanged"
+    )
 
     def __init__(self):
         super().__init__()
@@ -81,12 +81,9 @@ class Engine(EventEmitter):
         self.state = ControllerState()
         adapter = self.controller.adapter
 
-        self.mixer.on(MotuMixer.ParameterSetFromMixer,
-                      self._on_parameter_updated)
-        self.controller.on(XTouchController.ButtonPressed,
-                           self._on_button_press_start)
-        self.controller.on(XTouchController.ControlChanged,
-                           self._on_control_updated)
+        self.mixer.on(MotuMixer.ParameterSetFromMixer, self._on_parameter_updated)
+        self.controller.on(XTouchController.ButtonPressed, self._on_button_press_start)
+        self.controller.on(XTouchController.ControlChanged, self._on_control_updated)
         adapter.on(adapter.ExpressionChanged, self._on_expression_changed)
 
     def set_chan_cfg_mode(self, mode: ChannelConfigMode):
@@ -105,8 +102,7 @@ class Engine(EventEmitter):
         self.assignments.assign(control, param)
 
         if param and isinstance(control, Encoder):
-            if param.cfg.min and param.cfg.min < 0 and \
-                    param.cfg.max and param.cfg.max > 0:
+            if param.cfg.min and param.cfg.min < 0 and param.cfg.max and param.cfg.max > 0:
                 control.set_mode(Encoder.Mode.Trim, sync)
             elif param.name in ("freq"):
                 control.set_mode(Encoder.Mode.Single, sync)
@@ -114,8 +110,9 @@ class Engine(EventEmitter):
                 control.set_mode(Encoder.Mode.Spread, sync)
             else:
                 control.set_mode(Encoder.Mode.Fan, sync)
+
         if sync:
-            control.is_enabled = bool(param)
+            control.is_enabled = param is not None
 
         sync_value = sync and control.layer == self.state.layer
         control.set_value(param.normalized if param else 0.0, sync_value)
@@ -149,14 +146,15 @@ class Engine(EventEmitter):
 
         self.emit(Engine.ChannelSelected, layer, ch)
 
-    def assign_encoders(self, channel: bool, params: Sequence[MotuParameter | None], layer: int | None = None):
+    def assign_encoders(
+        self, channel: bool, params: Sequence[MotuParameter | None], layer: int | None = None
+    ):
         encs = self.controller.channel_encoders
         if not channel:
-            encs = self.controller.side_encoders[0] + \
-                self.controller.side_encoders[1]
+            encs = self.controller.side_encoders[0] + self.controller.side_encoders[1]
 
         if layer is not None:
-            encs = encs[layer * 8:layer * 8 + 8]
+            encs = encs[layer * 8 : layer * 8 + 8]
 
         for enc in encs:
             i = enc.index % 8
@@ -165,17 +163,20 @@ class Engine(EventEmitter):
 
     def get_main_out_channels(self):
         return [
-            chan.fader for chan in self.mixer.aux.values()
-            if chan.name in ("Aux JBL", "Aux Sub")
+            chan.fader for chan in self.mixer.aux.values() if chan.name in ("Aux JBL", "Aux Sub")
         ] + [self.mixer.monitor.fader]
 
     def get_aux_sends(self, chan: MotuAuxSendCapable):
-        return [send["send"] for nr, send in chan.aux_sends.items()
-                if nr in self.mixer.sendable_aux]
+        return [
+            send["send"] for nr, send in chan.aux_sends.items() if nr in self.mixer.sendable_aux
+        ]
 
     def get_group_sends(self, chan: MotuGroupSendCapable):
-        return [send["send"] for nr, send in chan.group_sends.items()
-                if nr in self.mixer.sendable_groups]
+        return [
+            send["send"]
+            for nr, send in chan.group_sends.items()
+            if nr in self.mixer.sendable_groups
+        ]
 
     def _set_layer(self, layer: int):
         if self.state.layer != layer:
@@ -211,7 +212,7 @@ class Engine(EventEmitter):
 
         if param := self.assignments.get_parameter(ctrl):
             self.mixer.set_parameter(param, ctrl.value)
-            log_change(ctrl, param, self.mixer)
+            # log_change(ctrl, param, self.mixer)
 
     def _on_parameter_updated(self, param: Parameter):
         if control := self.assignments.get_control(param):

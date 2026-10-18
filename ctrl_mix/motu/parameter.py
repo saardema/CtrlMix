@@ -1,7 +1,8 @@
-from abc import ABC
 import re
+from abc import ABC
 from typing import TYPE_CHECKING, Any
-from core.mixer import ParamConfig, Parameter, TParam
+
+from ctrl_mix.core.mixer import ParamConfig, Parameter, TParam
 from ctrl_mix.utils import gain_to_norm, lin_log, log_lin, norm_to_gain
 
 if TYPE_CHECKING:
@@ -12,14 +13,14 @@ class MotuParameter(Parameter, ABC):
     value_type = type
 
     def __init__(
-            self,
-            channel: MotuMixerChannel,
-            param_type: type[TParam],
-            base_path: str,
-            rel_path: str,
-            mix_state: dict,
-            cfg: ParamConfig,
-            is_log: bool = False
+        self,
+        channel: MotuMixerChannel,
+        param_type: type[TParam],
+        base_path: str,
+        rel_path: str,
+        mix_state: dict,
+        cfg: ParamConfig,
+        is_log: bool = False,
     ) -> None:
 
         self.base_path = base_path
@@ -53,7 +54,9 @@ class MotuParameter(Parameter, ABC):
         self.value = self._from_normalized(value)
 
     @classmethod
-    def create(cls, channel: MotuMixerChannel, base_path: str, rel_path: str, mix_state: dict[str, Any]):
+    def create(
+        cls, channel: MotuMixerChannel, base_path: str, rel_path: str, mix_state: dict[str, Any]
+    ):
 
         p_types: dict[str, tuple[type[MotuParameter], type]] = {
             "bool": (BoolParam, bool),
@@ -72,11 +75,11 @@ class MotuParameter(Parameter, ABC):
         is_log = cfg.unit == "Hz"
 
         if is_log:
-            assert cfg.min is not None and cfg.max is not None, \
+            assert cfg.min is not None and cfg.max is not None, (
                 "Logarithmic parameters require a min and max"
+            )
 
-        instance = param_cls(channel, value_type, base_path,
-                             rel_path, mix_state, cfg, is_log)
+        instance = param_cls(channel, value_type, base_path, rel_path, mix_state, cfg, is_log)
 
         return instance
 
@@ -86,14 +89,15 @@ class MotuParameter(Parameter, ABC):
             path = "matrix/fader"
         path = re.sub(r"(aux|group|reverb)/\d+/", "", path)
 
-        cfg_type, default = None, None
         min_val, max_val, unit = None, None, None
         enums = []
 
-        match str(mix[f"ctrls/{path}"]).split(":"):
-            case [cfg_type, default]: ...
-            case [cfg_type, default, *enums] if cfg_type == "enum": ...
-            case [cfg_type, default, min_val, max_val, unit]: ...
+        values = str(mix[f"ctrls/{path}"]).split(":")
+        cfg_type, default = values[:2]
+        if cfg_type == "enum":
+            enums = values[2:]
+        else:
+            min_val, max_val, unit = (values[2:] + [None] * 3)[:3]
 
         assert cfg_type is not None
         assert default is not None
@@ -103,12 +107,10 @@ class MotuParameter(Parameter, ABC):
         if max_val != None:
             max_val = float(max_val)
 
-        return ParamConfig(
-            cfg_type, default, enums, unit, min_val, max_val)
+        return ParamConfig(cfg_type, default, enums, unit, min_val, max_val)
 
 
 class BoolParam(MotuParameter):
-
     def _to_normalized(self, value):
         return bool(value)
 
@@ -117,7 +119,6 @@ class BoolParam(MotuParameter):
 
 
 class IntParam(MotuParameter):
-
     def _to_normalized(self, value):
         if self.is_log:
             value = log_lin(value, self.cfg.min, self.cfg.max)

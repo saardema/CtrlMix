@@ -46,20 +46,20 @@ src = "MS-20"
 [[channel_strip]]
 src = "Reface"
 
-[[channel_strip]]
-src = "Return 1"
+# [[channel_strip]]
+# src = "Return 1"
+
+# [[channel_strip]]
+# src = "Return 2"
+
+# [[channel_strip]]
+# src = "FX Return"
+
+# [[channel_strip]]
+# src = "Mix A Return"
 
 [[channel_strip]]
-src = "Return 2"
-
-[[channel_strip]]
-src = "FX Return"
-
-[[channel_strip]]
-src = "Mix A Return"
-
-[[channel_strip]]
-src = "Submix A"
+src = "Submix Grp"
 type = "group"
 
 # [[channel_strip]]

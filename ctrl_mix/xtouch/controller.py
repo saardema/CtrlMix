@@ -1,9 +1,9 @@
 import asyncio
 from collections.abc import Callable
 
-from core.controller import Control
-from core.events import Event, EventEmitter
-from xtouch.control import (
+from ctrl_mix.core.controller import Control
+from ctrl_mix.core.events import Event, EventEmitter
+from ctrl_mix.xtouch.control import (
     Button,
     ControlSubType,
     ControlType,
@@ -11,7 +11,7 @@ from xtouch.control import (
     Fader,
     XTouchControl,
 )
-from xtouch.midi import MidiCtrlEvent, XTouchMidiAdapter
+from ctrl_mix.xtouch.midi import MidiCtrlEvent, XTouchMidiAdapter
 
 
 class XTouchController(EventEmitter):
@@ -124,39 +124,43 @@ class XTouchController(EventEmitter):
             return
 
         ctrl = self.get_control(ctrl_type, layer, number)
-
-        if midi_event & MidiCtrlEvent.PressEvent:
-            if midi_event is MidiCtrlEvent.Pressed:
-                ctrl.on_press()
-            else:
-                ctrl.on_release()
-
-        elif ctrl.is_enabled:
-            ctrl.set_value(value, False)
-
-        else:
-            ctrl._on_disabled()
-            return
-
         event_name = ctrl_type.name + str(MidiCtrlEvent(midi_event).name)
         event = getattr(self, event_name)
 
+        if not ctrl.is_enabled:
+            # Repeat disabled handler to overwrite
+            # potential HW originated visual state
+            ctrl.on_disabled()
+
         if event is self.EncoderPressed and isinstance(ctrl, Encoder):
+            # Defer async to discern short/long presses
             asyncio.run_coroutine_threadsafe(
-                asyncio.sleep(.25),
-                self.event_loop
-            ).add_done_callback(
-                lambda _: self._delayed_encoder_press_handler(ctrl, sub_type))
+                asyncio.sleep(0.25), self.event_loop
+            ).add_done_callback(lambda _: self._delayed_encoder_press_handler(ctrl, sub_type))
+            ctrl.is_pressed = True
+
+        elif isinstance(ctrl, Fader) and event is self.FaderMoved and not ctrl.is_pressed:
+            return
 
         else:
+            if midi_event & MidiCtrlEvent.PressEvent:
+                if midi_event is MidiCtrlEvent.Pressed:
+                    ctrl.on_press()
+                else:
+                    ctrl.on_release()
+
+            elif ctrl.is_enabled:
+                ctrl.set_value(value, False)
+
             self.emit(event, ctrl, sub_type)
             self.emit(self.ControlChanged, ctrl, sub_type)
 
-    def _delayed_encoder_press_handler(self, ctrl: XTouchControl, sub_type: ControlSubType):
+    def _delayed_encoder_press_handler(self, ctrl: Encoder, sub_type: ControlSubType):
         if ctrl.is_pressed:
             event = self.EncoderLongPressed
         else:
             event = self.EncoderPressed
+            ctrl.on_press()
 
         self.emit(event, ctrl, sub_type)
         self.emit(self.ControlChanged, ctrl, sub_type)

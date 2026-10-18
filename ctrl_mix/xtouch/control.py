@@ -34,13 +34,15 @@ class XTouchControl(Control):
 
     @is_enabled.setter
     def is_enabled(self, state: bool):
-        if state:
-            self._on_enabled()
-        else:
-            self._on_disabled()
+        self._is_enabled = state
 
-    def _on_disabled(self): self._is_enabled = False
-    def _on_enabled(self): self._is_enabled = True
+        if state:
+            self.on_enabled()
+        else:
+            self.on_disabled()
+
+    def on_disabled(self): ...
+    def on_enabled(self): ...
 
     def on_press(self):
         self.is_pressed = True
@@ -53,12 +55,12 @@ class XTouchControl(Control):
 
 
 class Encoder(XTouchControl):
-
     class Mode(Enum):
         """
         CC values to send on global channel
         to change the visualization of the value
         """
+
         Single = 0
         Pan = 1
         Fan = 2
@@ -70,6 +72,7 @@ class Encoder(XTouchControl):
 
         self._mode: Encoder.Mode = Encoder.Mode.Fan
         self.tristate_toggle = False
+        self.state_toggle = True
 
     def set_mode(self, mode: Mode, sync=True):
         """
@@ -95,12 +98,10 @@ class Encoder(XTouchControl):
     def sync(self):
         self.adapter.set_encoder_value(self.layer, self.index, self.value)
 
-    def _on_enabled(self):
-        self._is_enabled = True
+    def on_enabled(self):
         self.set_mode(self._mode)
 
-    def _on_disabled(self):
-        self._is_enabled = False
+    def on_disabled(self):
         self.set_ring(0)
 
     def on_press(self):
@@ -109,16 +110,19 @@ class Encoder(XTouchControl):
         epsilon = 0.1
         unity_gain = 0.771
 
-        if self.tristate_toggle and self.value < unity_gain / 2 - epsilon:
-            self.set_value(unity_gain / 2)
-        elif self.value < unity_gain - epsilon:
-            self.set_value(unity_gain)
-        else:
-            self.set_value(0.0)
+        if self.tristate_toggle:
+            if self.value < unity_gain / 2 - epsilon:
+                self.set_value(unity_gain / 2)
+            elif self.value < unity_gain - epsilon:
+                self.set_value(unity_gain)
+            else:
+                self.set_value(0.0)
+
+        if self.state_toggle:
+            self.set_value(0 if self.value else unity_gain)
 
 
 class Fader(XTouchControl):
-
     def set_value(self, value: float, sync=True):
         self.value = value
         if sync:
@@ -135,6 +139,7 @@ class Button(XTouchControl):
         State is stored per control, but MIDI is dispatched by the controller,
         because the CC mapping is global, not tied to layers.
         """
+
         Off = 0
         On = 2
         Blink = 3

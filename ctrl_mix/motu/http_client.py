@@ -1,20 +1,21 @@
+import asyncio
+import json
+import threading
+import time
 from collections.abc import Callable
 from random import randint
-import threading
 from typing import Any
-import requests
-import time
-import json
-import asyncio
 
-from core.mixer import TParam
-from core.config import config
+import requests
+
+from ctrl_mix.core.config import config
+from ctrl_mix.core.mixer import TParam
 
 
 class MotuHttpClient:
-    def __init__(self, long_poll_callback: Callable[[dict], None], event_loop, request_rate=0.025) -> None:
+    def __init__(self, long_poll_callback: Callable[[dict], None], event_loop, request_rate=0.025):
         self.client_id = randint(0, (1 << 32) - 1)
-        self.api_url_base = f'http://localhost:1280/{config.motu_device_id}/datastore'
+        self.api_url_base = f"http://localhost:1280/{config.motu_device_id}/datastore"
         self.request_rate = request_rate
         self.long_poll_callback = long_poll_callback
         self.patch: dict[str, TParam] = {}
@@ -32,10 +33,7 @@ class MotuHttpClient:
         self.lp_thread.start()
 
     def get_url(self, sub_path: str = ""):
-        url = self.api_url_base
-        if sub_path:
-            url += f"/{sub_path}"
-        url += f"?client={self.client_id}"
+        url = f"{self.api_url_base}/{sub_path}?client={self.client_id}"
 
         return url
 
@@ -45,8 +43,7 @@ class MotuHttpClient:
             self.etag = int(resp.headers["etag"])
             return resp.json()
 
-        raise ConnectionError(
-            f"Server error ({resp.status_code}). Reason: '{resp.reason}'")
+        raise ConnectionError(f"Server error ({resp.status_code}). Reason: '{resp.reason}'")
 
     def push_change(self, path: str, value: TParam):
         """
@@ -57,11 +54,10 @@ class MotuHttpClient:
 
         if not self.push_scheduled:
             self.push_scheduled = True
-            asyncio.run_coroutine_threadsafe(
-                self._schedule_patch(), self.req_loop)
+            asyncio.run_coroutine_threadsafe(self._schedule_patch(), self.req_loop)
 
     def _run_req_event_loop(self):
-        """ Run the event loop in a background thread """
+        """Run the event loop in a background thread"""
 
         asyncio.set_event_loop(self.req_loop)
         self.req_loop.run_forever()
@@ -94,12 +90,12 @@ class MotuHttpClient:
         """
 
         if len(data) == 1:
-            (sub_path, value), = data.items()
-            path = "/".join([path, sub_path])
+            ((sub_path, value),) = data.items()
+            path = f"{path}/{sub_path}"
             data = {"value": value}
 
         url = self.get_url(path)
-        body = {'json': json.dumps(data)}
+        body = {"json": json.dumps(data)}
 
         # Bump state version to sync with Motu Api
         self.etag += 1
@@ -112,10 +108,7 @@ class MotuHttpClient:
 
         while True:
             try:
-                resp = requests.get(
-                    self.get_url(path),
-                    headers={"If-None-Match": str(self.etag)}
-                )
+                resp = requests.get(self.get_url(path), headers={"If-None-Match": str(self.etag)})
             except ConnectionError:
                 if not disconnect_logged:
                     disconnect_logged = True
@@ -154,14 +147,13 @@ class MotuHttpClient:
                     self.long_poll_callback(data)
 
             elif 500 <= resp.status_code < 600:
-                print(
-                    f"Server error ({resp.status_code}). Reason: '{resp.reason}'")
+                print(f"Server error ({resp.status_code}). Reason: '{resp.reason}'")
                 time.sleep(10)
 
             elif resp.status_code == 404:
                 if not not_found_logged:
                     not_found_logged = True
-                    print(f"Motu device not found")
+                    print("Motu device not found")
                 time.sleep(10)
 
             else:

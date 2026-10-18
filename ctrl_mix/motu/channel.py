@@ -1,7 +1,15 @@
 from typing import TYPE_CHECKING, Any
+
+from ctrl_mix.core.mixer import (
+    AuxChannel,
+    GroupChannel,
+    InputChannel,
+    MainChannel,
+    Mixer,
+    MixerChannel,
+    MonitorChannel,
+)
 from ctrl_mix.motu.parameter import MotuParameter
-from ctrl_mix.core.mixer import AuxChannel, GroupChannel, InputChannel, \
-    MainChannel, Mixer, MixerChannel, MonitorChannel
 
 if TYPE_CHECKING:
     from ctrl_mix.motu.mixer import MotuMixer
@@ -21,8 +29,8 @@ class Equalizer:
         self.mid2 = Equalizer.Band()
         self.highshelf = Equalizer.Band()
 
-    def get_bands(self):
-        return [self.lowshelf, self.mid1, self.mid2, self.highshelf]
+    def get_bands(self) -> list[Equalizer.Band]:
+        return [self.highshelf, self.mid2, self.mid1, self.lowshelf]
 
 
 class MotuMixerChannel(MixerChannel):
@@ -65,7 +73,7 @@ class MotuMixerChannel(MixerChannel):
         if self.name:
             props.insert(0, self.name)
 
-        return f"{self.__class__.__name__}({", ".join(props)})"
+        return f"{self.__class__.__name__}({', '.join(props)})"
 
 
 class MotuMainSendCapable(MotuMixerChannel):
@@ -88,7 +96,7 @@ class MotuGroupSendCapable(MotuMixerChannel):
         for idx in state["matrix"]["group"]:
             self.group_sends[int(idx)] = {
                 "send": self.create_param(f"matrix/group/{idx}/send"),
-                "pan": self.create_param(f"matrix/group/{idx}/pan")
+                "pan": self.create_param(f"matrix/group/{idx}/pan"),
             }
 
         self.group_sends = dict(sorted(self.group_sends.items()))
@@ -105,7 +113,7 @@ class MotuAuxSendCapable(MotuMixerChannel):
         for idx in state["matrix"]["aux"]:
             self.aux_sends[int(idx)] = {
                 "send": self.create_param(f"matrix/aux/{idx}/send"),
-                "pan": self.create_param(f"matrix/aux/{idx}/pan")
+                "pan": self.create_param(f"matrix/aux/{idx}/pan"),
             }
 
         self.aux_sends = dict(sorted(self.aux_sends.items()))
@@ -120,21 +128,16 @@ class MotuSendReceiver(MotuMixerChannel):
         self.prefader = self.create_param("matrix/prefader")
 
 
-class MotuMonitor(MotuMixerChannel, MonitorChannel):
-    ...
+class MotuMonitor(MotuMixerChannel, MonitorChannel): ...
 
 
-class MotuMain(MotuMixerChannel, MainChannel):
-    ...
+class MotuMain(MotuMixerChannel, MainChannel): ...
 
 
-class MotuInput(MotuMainSendCapable, MotuAuxSendCapable, MotuGroupSendCapable, InputChannel):
-    ...
+class MotuInput(MotuMainSendCapable, MotuAuxSendCapable, MotuGroupSendCapable, InputChannel): ...
 
 
-class MotuGroup(MotuMainSendCapable, MotuAuxSendCapable, MotuSendReceiver, GroupChannel):
-    ...
+class MotuGroup(MotuMainSendCapable, MotuAuxSendCapable, MotuSendReceiver, GroupChannel): ...
 
 
-class MotuAux(MotuSendReceiver, AuxChannel):
-    ...
+class MotuAux(MotuSendReceiver, AuxChannel): ...

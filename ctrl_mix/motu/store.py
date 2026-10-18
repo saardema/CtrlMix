@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from ctrl_mix.core.events import Event, EventEmitter
-from motu.http_client import MotuHttpClient
-from core.mixer import TParam
+from ctrl_mix.core.mixer import TParam
+from ctrl_mix.motu.http_client import MotuHttpClient
 
 
 @dataclass
@@ -40,11 +40,7 @@ class AudioChannel:
         if ":" in bank_data.get("src", ""):
             routing = tuple(map(int, bank_data["src"].split(":")))
 
-        return AudioChannel(
-            bank_data["name"],
-            bank_data["defaultName"],
-            routing
-        )
+        return AudioChannel(bank_data["name"], bank_data["defaultName"], routing)
 
 
 @dataclass(frozen=True)
@@ -61,12 +57,12 @@ class ChannelBank(ABC):
             channels={
                 int(c): AudioChannel.from_bank_data(ch_data)
                 for c, ch_data in bank_data["ch"].items()
-            })
+            },
+        )
 
 
 @dataclass(frozen=True)
-class InputBank(ChannelBank):
-    ...
+class InputBank(ChannelBank): ...
 
 
 @dataclass(frozen=True)
@@ -91,11 +87,11 @@ class MixerStore(EventEmitter):
     def __init__(self, event_loop):
         super().__init__()
 
-        self._client = MotuHttpClient(self.on_long_poll_mix_change, event_loop)
+        self._client = MotuHttpClient(self._on_long_poll_mix_change, event_loop)
 
         self.mix_state: dict[str, TParam] = {}
         self.mix_state_deep: dict[str, Any] = {}
-        self.pull_mix_state()
+        self._pull_mix_state()
         self._client.start_long_poll()
 
         # I/O groups (Analog, S/PDIF, Aux, etc.)
@@ -105,19 +101,9 @@ class MixerStore(EventEmitter):
         self.output_banks_dir: dict[str, OutputBank] = {}
         self._parse_banks()
 
-    def pull_mix_state(self):
-        self.mix_state = self._client.fetch_path("mix")
-
-        # The API has both a dict and str value for "ctrls/reverb"
-        # so rename one of them to avoid a conflict
-        if "ctrls/reverb" in self.mix_state:
-            self.mix_state["ctrls/reverbMeterStripOrder"] = self.mix_state["ctrls/reverb"]
-            del self.mix_state["ctrls/reverb"]
-
-        self.mix_state_deep = self.to_deep_dict(self.mix_state)
-        self.emit(MixerStore.StoreInitialized)
-
-    def get_bank(self, name: str, join_stereo_pairs=True, enabled_only=True) -> dict[int, AudioChannel]:
+    def get_bank(
+        self, name: str, join_stereo_pairs=True, enabled_only=True
+    ) -> dict[int, AudioChannel]:
         channels: dict[int, AudioChannel] = {}
 
         bank = self.input_banks_dir.get(name)
@@ -143,9 +129,21 @@ class MixerStore(EventEmitter):
         self.mix_state[path] = value
         self._client.push_change(path, value)
 
-    def on_long_poll_mix_change(self, mix_state_change: dict):
+    def _on_long_poll_mix_change(self, mix_state_change: dict):
         self.mix_state |= mix_state_change
         self.emit(MixerStore.StoreUpdated, mix_state_change)
+
+    def _pull_mix_state(self):
+        self.mix_state = self._client.fetch_path("mix")
+
+        # The API has both a dict and str value for "ctrls/reverb"
+        # so rename one of them to avoid a conflict
+        if "ctrls/reverb" in self.mix_state:
+            self.mix_state["ctrls/reverbMeterStripOrder"] = self.mix_state["ctrls/reverb"]
+            del self.mix_state["ctrls/reverb"]
+
+        self.mix_state_deep = self._to_deep_dict(self.mix_state)
+        self.emit(MixerStore.StoreInitialized)
 
     def _parse_banks(self):
         for i, bank_data in self._fetch("ext/ibank").items():
@@ -175,9 +173,9 @@ class MixerStore(EventEmitter):
     def _fetch(self, path: str):
         flat_dict = self._client.fetch_path(path)
 
-        return self.to_deep_dict(flat_dict)
+        return self._to_deep_dict(flat_dict)
 
-    def to_deep_dict(self, flat_source: dict) -> dict[str, Any]:
+    def _to_deep_dict(self, flat_source: dict) -> dict[str, Any]:
         store_dict = {}
 
         for path, value in flat_source.items():
