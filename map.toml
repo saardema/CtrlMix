@@ -1,76 +1,7 @@
 #:schema ./schemas/map-schema.json
 
 [mixer.inputs]
-"Post Master" = { fader = false }
 
 [mixer.aux]
-"Aux 4" = { send = false }
-"Aux JBL" = { send = false }
-"Aux Sub" = { send = false }
 
 [mixer.groups]
-"Group 5" = { send = false, fader = false }
-
-# Fader 1-8
-[[channel_strip]]
-src = "TR-8S"
-
-[[channel_strip]]
-src = "Sub-37"
-
-[[channel_strip]]
-src = "Labyrinth"
-
-[[channel_strip]]
-src = "Model D"
-
-[[channel_strip]]
-src = "Pro-800"
-
-[[channel_strip]]
-src = "Minilogue XD"
-
-[[channel_strip]]
-src = "Digitakt"
-
-[[channel_strip]]
-src = "Edge"
-
-# Fader 9-16
-[[channel_strip]]
-src = "TR-8S Kick"
-
-[[channel_strip]]
-src = "MS-20"
-
-[[channel_strip]]
-src = "Reface"
-
-# [[channel_strip]]
-# src = "Return 1"
-
-# [[channel_strip]]
-# src = "Return 2"
-
-# [[channel_strip]]
-# src = "FX Return"
-
-# [[channel_strip]]
-# src = "Mix A Return"
-
-[[channel_strip]]
-src = "Submix Grp"
-type = "group"
-
-# [[channel_strip]]
-# src = "Return 4"
-
-# [[channel_strip]]
-# src = "Mix B Return"
-
-# [[channel_strip]]
-# src = "Mac"
-
-# [[channel_strip]]
-# src  = "Submix B"
-# type = "group"
